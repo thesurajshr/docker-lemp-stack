@@ -1,0 +1,83 @@
+version: "3.8"
+
+services:
+  nginx:
+    image: nginx:latest
+    container_name: ${APP_NAME}_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - "./conf/nginx/nginx.conf:/etc/nginx/nginx.conf"
+      - "./conf/nginx/includes:/etc/nginx/includes"
+      - "./conf/nginx/sites-available:/etc/nginx/sites-available"
+      - "./logs/nginx:/var/log/nginx"
+      - "./conf/nginx/html:/usr/share/nginx/html"
+      - "./www/html:/var/www/html"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      - php
+    restart: "unless-stopped"
+    networks:
+      - app_net
+  mariadb:
+    image: mariadb:latest
+    container_name: ${APP_NAME}_mariadb
+    ports:
+      - "3306:3306"
+    volumes:
+      - "./logs/mysql:/var/log/mysql"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - app_net
+  php:
+    build:
+      context: .
+      dockerfile: "./conf/php/docker/Dockerfile"
+    container_name: ${APP_NAME}_php
+    volumes:
+      - "./logs/php:/var/log/php"
+      - "./www/html:/var/www/html"
+      - "./conf/php/ini/${ENVIRONMENT}/php.ini:/usr/local/etc/php/php.ini"
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    ports:
+      - "9000:9000"
+    networks:
+      - app_net
+
+  #This is optional
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: ${APP_NAME}_phpmyadmin
+    platform: linux/amd64
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: ${DB_HOST}
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - app_net
+networks:
+  app_net:
